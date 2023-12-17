@@ -4,8 +4,11 @@ FROM python:3.11.6-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# install ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg && apt-get install git
+# Install ffmpeg and git
+RUN apt-get update && \
+    apt-get install -y ffmpeg git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Clone Repository
 RUN git clone https://github.com/ashutoshdhanda/meeting_summary.git
