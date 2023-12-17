@@ -5,16 +5,16 @@ FROM python:3.11.6-slim
 WORKDIR /app
 
 # install ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg && apt-get install git
 
-# Copy the dependencies file to the working directory
-COPY requirements.txt .
+# Clone Repository
+RUN git clone https://github.com/ashutoshdhanda/meeting_summary.git
+
+# Set the working directory for installing python dependencies
+WORKDIR /app/meeting_summary
 
 # Install any dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the content of the local src directory to the working directory
-COPY . .
 
 # Inform Docker that the container is listening on the specified port at runtime.
 EXPOSE 8501
