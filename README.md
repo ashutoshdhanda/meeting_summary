@@ -5,6 +5,6 @@ Streamlit app that takes as input a video file, typically that of a meeting betw
 
 make .env file with the required environment Variables:
 
-AZURE_OPENAI_ENDPOINT= \n
+AZURE_OPENAI_ENDPOINT= <br>
 AZURE_OPENAI_KEY=
 
