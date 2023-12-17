@@ -1,0 +1,6 @@
+streamlit
+moviepy
+openai
+openai-whisper
+python-dotenv
+pydub
