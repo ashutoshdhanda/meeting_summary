@@ -84,8 +84,8 @@ def transcribe_audio(audio_path):
         text_file.write(transcribed_text)
 
     # Optionally display a link to download the text file
-    st.markdown("## Transcription Result")
-    st.write(transcribed_text)
+    #st.markdown("## Transcription Result")
+    #st.write(transcribed_text)
     st.markdown(f"Download the transcription [here](file://{text_file_path})")
 
     return transcribed_text
