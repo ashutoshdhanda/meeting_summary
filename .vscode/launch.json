@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Remote Attach",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678 // The port debugpy is listening on
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}", // Your local source code directory
+                    "remoteRoot": "/app" // The directory in the Docker container
+                }
+            ]
+        }
+    ]
+}
