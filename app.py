@@ -39,6 +39,20 @@ def show_eula():
         st.session_state["eula_accepted"] = True
         st.experimental_rerun()
 
+def get_base64_encoded_data(filename):
+    with open(filename, "rb") as file:
+        # Read the file content
+        data = file.read()
+        # Encode the data to Base64
+        base64_encoded_data = base64.b64encode(data)
+        base64_message = base64_encoded_data.decode('utf-8')
+        return base64_message
+
+def create_download_link(filename, download_name):
+    base64_data = get_base64_encoded_data(filename)
+    href = f'<a href="data:file/txt;base64,{base64_data}" download="{download_name}">Descargar transcripción.</a>'
+    st.markdown(href, unsafe_allow_html=True)
+
 
 def extract_audio(video_file, audio_path):
     with open("temp_video", "wb") as f:
@@ -83,10 +97,7 @@ def transcribe_audio(audio_path):
     with open(text_file_path, "w") as text_file:
         text_file.write(transcribed_text)
 
-    # Optionally display a link to download the text file
-    #st.markdown("## Transcription Result")
-    #st.write(transcribed_text)
-    st.markdown(f"Download the transcription [here](file://{text_file_path})")
+    create_download_link(text_file_path, "transcription.txt")
 
     return transcribed_text
 
@@ -149,8 +160,8 @@ def main():
                 audio_path = "extracted_audio.wav"
                 extract_audio(uploaded_file, audio_path)
                 transcription = transcribe_audio(audio_path)
-                # with open("extracted_audio.txt", "r") as file:
-                # transcription = file.read()
+                with open("extracted_audio.txt", "r") as file:
+                    transcription = file.read()
                 meeting_info = generate_meeting_summary(transcription)
             else:
                 st.error("Please upload a valid video file.")
