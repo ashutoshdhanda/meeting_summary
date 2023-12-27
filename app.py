@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from htmlTemplates import css, bot_template, user_template
 import streamlit as st
+from streamlit import components
 from moviepy.editor import VideoFileClip
 from pydub import AudioSegment
 import whisper
@@ -116,7 +117,6 @@ def generate_meeting_summary(transcription):
                 {"role": "user", "content": prompt},
             ],
         )
-        # f"Context: Below is the transcription of an audio file from a recent meeting. The meeting covered various topics, including project updates, budget discussions, and future planning. Your task is to analyze the text and generate concise meeting notes that summarize the key points discussed. Additionally, create a list of participants based on the names and titles mentioned during the meeting.\nTranscription of Audio File:\n{transcription}\nBased on the above transcription, please generate the following:\n1. A summary of the meeting, highlighting the main topics discussed, decisions made, and action items.\n2. A list of participants, including their names and roles or titles as mentioned in the meeting.", max_tokens=10000)
         return response.choices[0].message.content
     except Exception as e:
         st.write(e)
@@ -128,7 +128,6 @@ def create_chat_message(message, template):
 
 
 def main():
-    # openai.api_key = load_api_key()
     load_dotenv()
     client = AzureOpenAI(
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
@@ -141,12 +140,15 @@ def main():
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = None
+    if "meeting_info" not in st.session_state:
+        st.session_state.meeting_info = None
 
     st.header("Chat with meetings 📺")
 
-    meeting_info = None  # Variable to store meeting information
+    transcription = ""
+
+    if "meeting_info" not in st.session_state:
+        st.session_state.meeting_info = None
 
     with st.sidebar:
         # Sidebar code for file upload and other inputs
@@ -158,27 +160,45 @@ def main():
         if uploaded_file is not None:
             if uploaded_file.type.startswith("video/"):
                 audio_path = "extracted_audio.wav"
-                extract_audio(uploaded_file, audio_path)
-                transcription = transcribe_audio(audio_path)
-                with open("extracted_audio.txt", "r") as file:
-                    transcription = file.read()
-                meeting_info = generate_meeting_summary(transcription)
+                #extract_audio(uploaded_file, audio_path)
+                #transcription = transcribe_audio(audio_path)
+                #with open("extracted_audio.txt", "r") as file:
+                    #transcription = file.read()
+                if st.session_state.meeting_info is None:
+                    extract_audio(uploaded_file, audio_path)
+                    transcription = transcribe_audio(audio_path)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription)
+                    #meeting_info = generate_meeting_summary(transcription)
             else:
                 st.error("Please upload a valid video file.")
 
     # Displaying the generated meeting information as a bot message on the right side
-    if meeting_info:
-        bot_message = create_chat_message(meeting_info, bot_template)
+    if st.session_state.meeting_info:
+        bot_message = create_chat_message(st.session_state.meeting_info, bot_template)
         st.markdown(bot_message, unsafe_allow_html=True)
 
-    # User input text area below the bot message
-    user_question = st.text_input(
-        "Ask a question about the meeting, based on transcript:"
-    )
-    if user_question:
-        # Display user input as a user message
-        user_message = create_chat_message(user_question, user_template)
-        st.markdown(user_message, unsafe_allow_html=True)
+        st.header("que mas....? 📺")
+        # User input text area below the bot message
+        user_question = st.text_input("Pregunten aqui:")
+        
+
+        if user_question:
+            prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. \n{transcription}\n Su tarea es analizar el texto y responder lo siguiente: \n{user_question}\n" 
+            st.session_state.conversation=[{"role": "system", "content": prompt}]
+
+            if 'last_question' not in st.session_state or st.session_state.last_question != user_question:
+                response = client.chat.completions.create(
+                    model="sopa",
+                    messages=st.session_state.conversation
+                )
+                st.session_state.conversation.append({"role": "assistant", "content": response.choices[0].message.content})
+                st.session_state.last_question = user_question
+
+            # Display the conversation
+            for message in st.session_state.conversation:
+                if message["role"] == "assistant":
+                    chat_message = create_chat_message(message["content"], bot_template)
+                    st.markdown(chat_message, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
