@@ -174,6 +174,8 @@ def main():
 
     # Displaying the generated meeting information as a bot message on the right side
     if st.session_state.meeting_info:
+        with open("extracted_audio.txt", "r") as file:
+            transcription = file.read()
         bot_message = create_chat_message(st.session_state.meeting_info, bot_template)
         st.markdown(bot_message, unsafe_allow_html=True)
 
