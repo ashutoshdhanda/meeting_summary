@@ -7,12 +7,12 @@
             "request": "attach",
             "connect": {
                 "host": "localhost",
-                "port": 5678 // The port debugpy is listening on
+                "port": 8080 // The port on the host machine that VS Code will connect to
             },
             "pathMappings": [
                 {
-                    "localRoot": "${workspaceFolder}", // Your local source code directory
-                    "remoteRoot": "/app" // The directory in the Docker container
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/app/meeting_summary/"
                 }
             ]
         }

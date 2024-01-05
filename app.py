@@ -2,12 +2,21 @@ import os
 from dotenv import load_dotenv
 from htmlTemplates import css, bot_template, user_template
 import streamlit as st
+import docx
 from streamlit import components
 from moviepy.editor import VideoFileClip
 from pydub import AudioSegment
 import whisper
 import base64
 from openai import AzureOpenAI
+
+# import debugpy
+
+# debugpy.listen(("0.0.0.0", 5678))  # Listen for debugger on port 5678
+# print("Waiting for debugger attach")
+# debugpy.wait_for_client()  # Blocks execution until debugger is attached
+# debugpy.breakpoint()  # You can set breakpoints using debugpy.breakpoint() wherever you need
+# print("Debugger attached")
 
 
 def show_eula():
@@ -40,14 +49,16 @@ def show_eula():
         st.session_state["eula_accepted"] = True
         st.experimental_rerun()
 
+
 def get_base64_encoded_data(filename):
     with open(filename, "rb") as file:
         # Read the file content
         data = file.read()
         # Encode the data to Base64
         base64_encoded_data = base64.b64encode(data)
-        base64_message = base64_encoded_data.decode('utf-8')
+        base64_message = base64_encoded_data.decode("utf-8")
         return base64_message
+
 
 def create_download_link(filename, download_name):
     base64_data = get_base64_encoded_data(filename)
@@ -106,7 +117,8 @@ def transcribe_audio(audio_path):
 def generate_meeting_summary(transcription):
     try:
         # Define your prompt with the transcription text
-        prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
+        #prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
+        prompt = f"Context: A continuación, te entrego una transcripción de un video a texto:\n{transcription}\nEste video transcrito es de un profesor enseñándole a sus alumnos a usar la plataforma SAP, por lo que dentro de la transcripción hay conversaciones del profesor con sus alumnos y por ende es probable que hayan palabras mal transcritas. \nTu tarea es analizar el texto y generar lo siguiente :\n1 Un resumen de lo que trato la  clase. \n2 Un manual instructivo extenso y detallado de lo que se realizo durante el video paso a paso. \n Necesito que seas especifico y no inventes cosas fuera del video, además la estructura debe ser titulo1: resumen de la clase, titulo2: Manual instructivo, subtítulos (tema principal de cada paso a paso), y debes enumerar los pasos dentro de cada subtitulo."
         response = client.chat.completions.create(
             model="sopa",
             messages=[
@@ -154,23 +166,62 @@ def main():
         # Sidebar code for file upload and other inputs
 
         uploaded_file = st.file_uploader(
-            "Upload a video file", type=["mp4", "avi", "mov", "mkv"]
+            "Upload a video file", type=["mp4", "avi", "mov", "mkv", "vtt", "txt", "docx"]
         )
 
         if uploaded_file is not None:
             if uploaded_file.type.startswith("video/"):
                 audio_path = "extracted_audio.wav"
-                #extract_audio(uploaded_file, audio_path)
-                #transcription = transcribe_audio(audio_path)
-                #with open("extracted_audio.txt", "r") as file:
-                    #transcription = file.read()
+                # extract_audio(uploaded_file, audio_path)
+                # transcription = transcribe_audio(audio_path)
+                # with open("extracted_audio.txt", "r") as file:
+                # transcription = file.read()
                 if st.session_state.meeting_info is None:
                     extract_audio(uploaded_file, audio_path)
                     transcription = transcribe_audio(audio_path)
+                    st.session_state.meeting_info = generate_meeting_summary(
+                        transcription
+                    )
+            elif uploaded_file.type.startswith("text/"):
+                #with open(uploaded_file, "r") as file:
+                    #transcription = file.read()
+                transcription = uploaded_file.getvalue().decode('utf-8')
+                st.session_state.meeting_info = generate_meeting_summary(transcription)
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                doc = docx.Document(uploaded_file)
+                full_text = [paragraph.text for paragraph in doc.paragraphs]
+                #st.write(full_text)
+                transcription = "\n".join(full_text)
+                st.session_state.meeting_info = generate_meeting_summary(transcription)
+            elif uploaded_file.type.startswith("application/octet-stream"):
+                # Check if the file extension is .vtt
+                file_name = uploaded_file.name
+                file_extension = os.path.splitext(file_name)[1].lower()
+                if file_extension == '.vtt':
+                    # Extracting dialogues from the VTT file and concatenating them into a continuous text
+                    vtt_content = uploaded_file.getvalue().decode("utf-8").splitlines()
+                    dialogues = []
+                    is_dialogue_line = False  # Flag to track if a line is part of a dialogue
+
+                    for line in vtt_content:
+                        # Skip empty lines and lines with metadata (like timestamps and identifiers)
+                        if line.strip() and not '-->' in line and not line[0].isalnum():
+                            is_dialogue_line = True
+                        elif line.strip() == '':
+                            is_dialogue_line = False
+                        
+                        # If it's a dialogue line, add it to the dialogues list
+                        if is_dialogue_line:
+                            dialogues.append(line.strip())
+
+                    # Joining the dialogues into a continuous text
+                    transcription = ' '.join(dialogues)
                     st.session_state.meeting_info = generate_meeting_summary(transcription)
-                    #meeting_info = generate_meeting_summary(transcription)
+                else:
+                    st.error("Not a valid file")
             else:
-                st.error("Please upload a valid video file.")
+                st.write(uploaded_file.type)
+                st.error("Please upload a valid file.")
 
     # Displaying the generated meeting information as a bot message on the right side
     if st.session_state.meeting_info:
@@ -182,18 +233,24 @@ def main():
         st.header("que mas....? 📺")
         # User input text area below the bot message
         user_question = st.text_input("Pregunten aqui:")
-        
 
         if user_question:
-            prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. \n{transcription}\n Su tarea es analizar el texto y responder lo siguiente: \n{user_question}\n" 
-            st.session_state.conversation=[{"role": "system", "content": prompt}]
+            prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. \n{transcription}\n Su tarea es analizar el texto y responder lo siguiente: \n{user_question}\n"
+            st.session_state.conversation = [{"role": "system", "content": prompt}]
 
-            if 'last_question' not in st.session_state or st.session_state.last_question != user_question:
+            if (
+                "last_question" not in st.session_state
+                or st.session_state.last_question != user_question
+            ):
                 response = client.chat.completions.create(
-                    model="sopa",
-                    messages=st.session_state.conversation
+                    model="sopa", messages=st.session_state.conversation
                 )
-                st.session_state.conversation.append({"role": "assistant", "content": response.choices[0].message.content})
+                st.session_state.conversation.append(
+                    {
+                        "role": "assistant",
+                        "content": response.choices[0].message.content,
+                    }
+                )
                 st.session_state.last_question = user_question
 
             # Display the conversation
@@ -205,7 +262,7 @@ def main():
 
 if __name__ == "__main__":
     if "eula_accepted" not in st.session_state:
-        st.session_state["eula_accepted"] = False
+        st.session_state["eula_accepted"] = True
 
     if st.session_state["eula_accepted"]:
         load_dotenv()
