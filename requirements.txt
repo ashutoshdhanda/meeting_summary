@@ -3,4 +3,5 @@ moviepy
 openai
 openai-whisper
 python-dotenv
+python-docx
 pydub
