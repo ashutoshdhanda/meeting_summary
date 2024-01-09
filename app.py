@@ -128,7 +128,6 @@ def create_chat_message(message, template):
     return template.replace("{{MSG}}", message)
 
 
-
 def main():
     load_dotenv()
     client = AzureOpenAI(
@@ -156,7 +155,7 @@ def main():
         # Sidebar code for file upload and other inputs
 
         uploaded_file = st.file_uploader(
-            "Upload a video file", type=["mp4", "avi", "mov", "mkv", "vtt", "txt", "docx"]
+            "Upload a video / transcription file", type=["mp4", "avi", "mov", "mkv", "vtt", "txt", "docx"]
         )
 
         if uploaded_file is not None:
@@ -172,50 +171,47 @@ def main():
                     st.session_state.meeting_info = generate_meeting_summary(transcription)
                     #meeting_info = generate_meeting_summary(transcription)
             elif uploaded_file.type.startswith("text/"):
-                #with open(uploaded_file, "r") as file:
-                    #transcription = file.read()
-                transcription = uploaded_file.getvalue().decode('utf-8')
-                st.session_state.meeting_info = generate_meeting_summary(transcription)
-            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                doc = docx.Document(uploaded_file)
-                full_text = [paragraph.text for paragraph in doc.paragraphs]
-                #st.write(full_text)
-                transcription = "\n".join(full_text)
-                st.session_state.meeting_info = generate_meeting_summary(transcription)
-            elif uploaded_file.type.startswith("application/octet-stream"):
-                # Check if the file extension is .vtt
-                file_name = uploaded_file.name
-                file_extension = os.path.splitext(file_name)[1].lower()
-                if file_extension == '.vtt':
-                    # Extracting dialogues from the VTT file and concatenating them into a continuous text
-                    vtt_content = uploaded_file.getvalue().decode("utf-8").splitlines()
-                    dialogues = []
-                    is_dialogue_line = False  # Flag to track if a line is part of a dialogue
-
-                    for line in vtt_content:
-                        # Skip empty lines and lines with metadata (like timestamps and identifiers)
-                        if line.strip() and not '-->' in line and not line[0].isalnum():
-                            is_dialogue_line = True
-                        elif line.strip() == '':
-                            is_dialogue_line = False
-                        
-                        # If it's a dialogue line, add it to the dialogues list
-                        if is_dialogue_line:
-                            dialogues.append(line.strip())
-
-                    # Joining the dialogues into a continuous text
-                    transcription = ' '.join(dialogues)
+                if st.session_state.meeting_info is None:
+                    transcription = uploaded_file.getvalue().decode('utf-8')
                     st.session_state.meeting_info = generate_meeting_summary(transcription)
-                else:
-                    st.error("Not a valid text file")
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                if st.session_state.meeting_info is None:
+                    doc = docx.Document(uploaded_file)
+                    full_text = [paragraph.text for paragraph in doc.paragraphs]
+                    transcription = "\n".join(full_text)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription)
+            elif uploaded_file.type.startswith("application/octet-stream"):
+                if st.session_state.meeting_info is None:
+                    # Check if the file extension is .vtt
+                    file_name = uploaded_file.name
+                    file_extension = os.path.splitext(file_name)[1].lower()
+                    if file_extension == '.vtt':
+                        # Extracting dialogues from the VTT file and concatenating them into a continuous text
+                        vtt_content = uploaded_file.getvalue().decode("utf-8").splitlines()
+                        dialogues = []
+                        is_dialogue_line = False  # Flag to track if a line is part of a dialogue
+
+                        for line in vtt_content:
+                            # Skip empty lines and lines with metadata (like timestamps and identifiers)
+                            if line.strip() and not '-->' in line and not line[0].isalnum():
+                                is_dialogue_line = True
+                            elif line.strip() == '':
+                                is_dialogue_line = False
+                            
+                            # If it's a dialogue line, add it to the dialogues list
+                            if is_dialogue_line:
+                                dialogues.append(line.strip())
+
+                        # Joining the dialogues into a continuous text
+                        transcription = ' '.join(dialogues)
+                        st.session_state.meeting_info = generate_meeting_summary(transcription)
             else:
-                file_type = uploaded_file.type
-                st.error("The filetype {file_type} is not accepted. Please upload a valid file.")
+                st.error("Please upload a valid file.")
 
     # Displaying the generated meeting information as a bot message on the right side
     if st.session_state.meeting_info:
-        with open("extracted_audio.txt", "r") as file:
-            transcription = file.read()
+        #with open("extracted_audio.txt", "r") as file:
+            #transcription = file.read()
         bot_message = create_chat_message(st.session_state.meeting_info, bot_template)
         st.markdown(bot_message, unsafe_allow_html=True)
 
