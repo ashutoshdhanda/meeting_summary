@@ -104,7 +104,7 @@ def transcribe_audio(audio_path):
     return transcribed_text
 
 
-def generate_meeting_summary(transcription):
+def generate_meeting_summary(transcription, client):
     try:
         # Define your prompt with the transcription text
         prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
@@ -118,10 +118,23 @@ def generate_meeting_summary(transcription):
                 {"role": "user", "content": prompt},
             ],
         )
-        return response.choices[0].message.content
+        summary = response.choices[0].message.content
+        st.session_state.conversation_history.append({"role": "assistant", "content": summary})
+        return summary
     except Exception as e:
         st.write(e)
         return str(e)
+    
+def handle_user_query(user_query, client):
+    st.session_state.conversation_history.append({"role": "user", "content": user_query})
+
+    response = client.chat.completions.create(
+        model="sopa",
+        messages=st.session_state.conversation_history[-5:]  # Adjust as needed
+    )
+
+    st.session_state.conversation_history.append({"role": "assistant", "content": response.choices[0].message.content})
+    return response.choices[0].message.content
 
 
 def create_chat_message(message, template):
@@ -139,8 +152,8 @@ def main():
     st.set_page_config(page_title="Chat with meetings", page_icon="📺")
     st.write(css, unsafe_allow_html=True)
 
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = None
+    if "conversation_history" not in st.session_state:
+        st.session_state.conversation_history = []
     if "meeting_info" not in st.session_state:
         st.session_state.meeting_info = None
 
@@ -168,18 +181,18 @@ def main():
                 if st.session_state.meeting_info is None:
                     extract_audio(uploaded_file, audio_path)
                     transcription = transcribe_audio(audio_path)
-                    st.session_state.meeting_info = generate_meeting_summary(transcription)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription, client)
                     #meeting_info = generate_meeting_summary(transcription)
             elif uploaded_file.type.startswith("text/"):
                 if st.session_state.meeting_info is None:
                     transcription = uploaded_file.getvalue().decode('utf-8')
-                    st.session_state.meeting_info = generate_meeting_summary(transcription)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription, client)
             elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
                 if st.session_state.meeting_info is None:
                     doc = docx.Document(uploaded_file)
                     full_text = [paragraph.text for paragraph in doc.paragraphs]
                     transcription = "\n".join(full_text)
-                    st.session_state.meeting_info = generate_meeting_summary(transcription)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription, client)
             elif uploaded_file.type.startswith("application/octet-stream"):
                 if st.session_state.meeting_info is None:
                     # Check if the file extension is .vtt
@@ -204,7 +217,7 @@ def main():
 
                         # Joining the dialogues into a continuous text
                         transcription = ' '.join(dialogues)
-                        st.session_state.meeting_info = generate_meeting_summary(transcription)
+                        st.session_state.meeting_info = generate_meeting_summary(transcription, client)
             else:
                 st.error("Please upload a valid file.")
 
@@ -221,22 +234,12 @@ def main():
         
 
         if user_question:
-            prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. \n{transcription}\n Su tarea es analizar el texto y responder lo siguiente: \n{user_question}\n" 
-            st.session_state.conversation=[{"role": "system", "content": prompt}]
-
-            if 'last_question' not in st.session_state or st.session_state.last_question != user_question:
-                response = client.chat.completions.create(
-                    model="sopa",
-                    messages=st.session_state.conversation
-                )
-                st.session_state.conversation.append({"role": "assistant", "content": response.choices[0].message.content})
-                st.session_state.last_question = user_question
-
-            # Display the conversation
-            for message in st.session_state.conversation:
+            response = handle_user_query(user_question, client)
+            for message in st.session_state.conversation_history:
                 if message["role"] == "assistant":
                     chat_message = create_chat_message(message["content"], bot_template)
                     st.markdown(chat_message, unsafe_allow_html=True)
+
 
 
 if __name__ == "__main__":
