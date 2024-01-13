@@ -85,7 +85,7 @@ def extract_audio(video_file, audio_path):
 def transcribe_audio(audio_path):
     with st.spinner("Transcribing audio..."):
         progress_bar = st.progress(0)
-        model = whisper.load_model("base")
+        model = whisper.load_model("medium")
         result = model.transcribe(audio_path)
         progress_bar.progress(100)
 
@@ -104,10 +104,8 @@ def transcribe_audio(audio_path):
     return transcribed_text
 
 
-def generate_meeting_summary(transcription, client):
+def generate_meeting_summary(transcription, client, prompt):
     try:
-        # Define your prompt with the transcription text
-        prompt = f"Context: A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
         response = client.chat.completions.create(
             model="sopa",
             messages=[
@@ -140,7 +138,6 @@ def handle_user_query(user_query, client):
 def create_chat_message(message, template):
     return template.replace("{{MSG}}", message)
 
-
 def main():
     load_dotenv()
     client = AzureOpenAI(
@@ -156,10 +153,26 @@ def main():
         st.session_state.conversation_history = []
     if "meeting_info" not in st.session_state:
         st.session_state.meeting_info = None
+    
 
-    st.header("Chat with meetings 📺")
 
+    st.header("Chat with Videos 📺")
     transcription = ""
+    default_value = "A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
+    prompt = st.text_area("Default Prompt", value=default_value, height=400)
+    #prompt = str.format(prompt_text)
+    if st.button('Change Prompt'):
+        try:
+            if transcription != "":
+                prompt = prompt.replace("{transcription}", transcription)
+                st.write("Prompt changed")
+                st.write(prompt)  # Display the formatted prompt
+            else:
+                prompt = prompt.replace("{transcription}", transcription)
+                st.write(prompt)
+        except KeyboardInterrupt as e:
+            st.error(f"Missing a value for the placeholder: {e}")
+            #print(default_value)    
 
     if "meeting_info" not in st.session_state:
         st.session_state.meeting_info = None
@@ -174,25 +187,23 @@ def main():
         if uploaded_file is not None:
             if uploaded_file.type.startswith("video/"):
                 audio_path = "extracted_audio.wav"
-                #extract_audio(uploaded_file, audio_path)
-                #transcription = transcribe_audio(audio_path)
-                #with open("extracted_audio.txt", "r") as file:
-                    #transcription = file.read()
                 if st.session_state.meeting_info is None:
                     extract_audio(uploaded_file, audio_path)
                     transcription = transcribe_audio(audio_path)
-                    st.session_state.meeting_info = generate_meeting_summary(transcription, client)
-                    #meeting_info = generate_meeting_summary(transcription)
+                    prompt = prompt.replace("{transcription}", transcription)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
             elif uploaded_file.type.startswith("text/"):
                 if st.session_state.meeting_info is None:
                     transcription = uploaded_file.getvalue().decode('utf-8')
-                    st.session_state.meeting_info = generate_meeting_summary(transcription, client)
+                    prompt = prompt.replace("{transcription}", transcription)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
             elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
                 if st.session_state.meeting_info is None:
                     doc = docx.Document(uploaded_file)
                     full_text = [paragraph.text for paragraph in doc.paragraphs]
                     transcription = "\n".join(full_text)
-                    st.session_state.meeting_info = generate_meeting_summary(transcription, client)
+                    prompt = prompt.replace("{transcription}", transcription)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
             elif uploaded_file.type.startswith("application/octet-stream"):
                 if st.session_state.meeting_info is None:
                     # Check if the file extension is .vtt
@@ -217,14 +228,13 @@ def main():
 
                         # Joining the dialogues into a continuous text
                         transcription = ' '.join(dialogues)
-                        st.session_state.meeting_info = generate_meeting_summary(transcription, client)
+                        prompt = prompt.replace("{transcription}", transcription)
+                        st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
             else:
                 st.error("Please upload a valid file.")
 
     # Displaying the generated meeting information as a bot message on the right side
     if st.session_state.meeting_info:
-        #with open("extracted_audio.txt", "r") as file:
-            #transcription = file.read()
         bot_message = create_chat_message(st.session_state.meeting_info, bot_template)
         st.markdown(bot_message, unsafe_allow_html=True)
 
