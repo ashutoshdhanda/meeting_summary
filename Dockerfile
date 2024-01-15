@@ -10,8 +10,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Clone Repository
-RUN git clone https://github.com/ashutoshdhanda/meeting_summary.git
+# Allow user to specify the branch to clone
+ARG BRANCH=main
+RUN git clone -b $BRANCH https://github.com/ashutoshdhanda/meeting_summary.git
 
 # Set the working directory for installing python dependencies
 WORKDIR /app/meeting_summary

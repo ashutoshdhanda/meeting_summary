@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from htmlTemplates import css, bot_template, user_template
+from htmlTemplates import css, bot_template
 import streamlit as st
 import docx
 from streamlit import components
@@ -11,35 +11,6 @@ import base64
 from openai import AzureOpenAI
 
 
-def show_eula():
-    style = """
-        <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            .scrollable-box {
-                height: 400px;
-                overflow-y: scroll;
-                background-color: rgba(255, 255, 255, 0.5);
-                padding: 10px;
-                border-radius: 5px;
-                margin-bottom: 20px;
-                white-space: pre-wrap;
-            }
-        </style>
-    """
-    st.markdown(style, unsafe_allow_html=True)
-
-    st.title("End User License Agreement")
-
-    eula_text = """Al utilizar nuestra Aplicación Web basada en Inteligencia Artificial Generativa, usted acepta los siguientes términos y condiciones. Esta aplicación utiliza tecnología de IA generativa avanzada y, como usuario, debe entender que las interacciones con dicha tecnología pueden producir resultados impredecibles, y que el contenido generado debe usarse con discreción. Usted es responsable de garantizar que los datos proporcionados no infrinjan los derechos de privacidad o propiedad intelectual de terceros, y debe estar consciente de que, a pesar de nuestros esfuerzos por asegurar la aplicación y los datos de los usuarios, no se puede garantizar una seguridad completa contra amenazas cibernéticas y accesos no autorizados. Los derechos de propiedad intelectual de la aplicación y el contenido generado pertenecen a nuestra empresa, y su uso no le otorga la propiedad de ningún derecho intelectual relacionado con la aplicación o su contenido. No nos hacemos responsables de daños directos, indirectos, incidentales o consecuentes derivados de su uso de la aplicación, incluyendo aquellos relacionados con inexactitudes, contenido ofensivo o violaciones de seguridad. El uso indebido de la aplicación o su contenido generado puede resultar en la terminación de su acceso. Nos reservamos el derecho de modificar estos términos y condiciones en cualquier momento, y su uso continuado de la aplicación constituye su consentimiento a dichos cambios."""  # Add your EULA text here
-
-    st.markdown(
-        f'<div class="scrollable-box">{eula_text}</div>', unsafe_allow_html=True
-    )
-
-    if st.button("I Agree"):
-        st.session_state["eula_accepted"] = True
-        st.experimental_rerun()
 
 def get_base64_encoded_data(filename):
     with open(filename, "rb") as file:
@@ -85,7 +56,7 @@ def extract_audio(video_file, audio_path):
 def transcribe_audio(audio_path):
     with st.spinner("Transcribing audio..."):
         progress_bar = st.progress(0)
-        model = whisper.load_model("medium")
+        model = whisper.load_model("base")
         result = model.transcribe(audio_path)
         progress_bar.progress(100)
 
@@ -161,11 +132,12 @@ def main():
     default_value = "A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
     prompt = st.text_area("Default Prompt", value=default_value, height=400)
     #prompt = str.format(prompt_text)
-    if st.button('Change Prompt'):
+    if st.button('Change Prompt :test_tube:'):
+        st.success("Prompt Changed!")
         try:
             if transcription != "":
                 prompt = prompt.replace("{transcription}", transcription)
-                st.write("Prompt changed")
+                #st.write("Prompt changed")
                 st.write(prompt)  # Display the formatted prompt
             else:
                 prompt = prompt.replace("{transcription}", transcription)
@@ -253,16 +225,4 @@ def main():
 
 
 if __name__ == "__main__":
-    if "eula_accepted" not in st.session_state:
-        st.session_state["eula_accepted"] = False
-
-    if st.session_state["eula_accepted"]:
-        load_dotenv()
-        client = AzureOpenAI(
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_key=os.getenv("AZURE_OPENAI_KEY"),
-            api_version="2023-05-15",
-        )
-        main()
-    else:
-        show_eula()
+    main()

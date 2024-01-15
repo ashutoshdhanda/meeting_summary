@@ -1,0 +1,52 @@
+
+<div class="chat-message bot">
+    <div class="avatar">
+        <img src="https://i.ibb.co/zX6NHC8/raw.png" style="max-height: 78px; max-width: 78px; border-radius: 50%; object-fit: cover;">
+    </div>
+    <div class="message">Análisis detallado del Modelo de Proceso de Negocio:
+
+El modelo representa un proceso de evaluación de divisas (FX) dividido en varias fases y actividades relacionadas con la gestión y cierre contable. Incluye la verificación de los datos de divisas, su carga y validación en el sistema, el cálculo de la revaluación, la generación de informes y el cierre de libros. A continuación, el detalle:
+
+Fase de Soporte Corporativo:
+1. **Envío de Solicitud de FX (010):** Inicia el proceso con una petición ad-hoc para la evaluación de divisas.
+2. **Revisión del Catálogo de Monedas (020):** Se verifica la información de las divisas mantenidas en el catálogo.
+3. **Carga del Archivo de Divisas (030):** Conforma la carga del archivo y revisa si hay errores.
+   - Si hay errores en la carga, se procede a **Corregir Errores de Carga de Divisas (040).**
+   - Si no hay errores, se valida la tasa de cambio en **Validación de la Tasa (050).**
+4. **Resolución de Discrepancias del Archivo de Datos (060):** Si la tasa no es correcta se trabaja para resolver discrepancias.
+
+Fase de GBS:
+5. **Ejecución del Cálculo de Revaluación de FX (070):** Se ejecuta el cálculo de la revaluación después del fin del período.
+6. **Revisión del Asiento Contable de Revaluación (080):** Se revisa el asiento para garantizar su exactitud.
+   - Si el asiento es incorrecto, se procede a **Resolver Discrepancia (090).**
+7. **Ejecución de Asientos de Revaluación en el Libro Mayor (100):** Si el asiento es apropiado, se contabiliza en el sistema de libro mayor.
+   - Se verifica si hay errores y, de ser así, se **Notifica al Propietario de la Cuenta (110).**
+8. **Notificación de Finalización de Revaluación (120):** Si no hay errores, se notifica la finalización al propietario del libro mayor y se cierra el libro (CL-7).
+
+Tabla de actividades y elementos:
+
+| ID  | Nombre Actividad                       | Ejecutor           | Tipo de Actividad | Descripción Corta                           | Input                               | Output                                                   |
+|-----|----------------------------------------|--------------------|-------------------|--------------------------------------------|-------------------------------------|----------------------------------------------------------|
+| 010 | Enviar Solicitud de FX                 | Local              | Ad-Hoc            | Inicio del proceso de evaluación de FX     | Solicitud                           | Proceso iniciado                                         |
+| 020 | Revisar Catálogo de Monedas            | Soporte Corporativo| Revisión          | Verificación de datos de divisas           | Catálogo de Monedas                 | Validación del catálogo                                  |
+| 030 | Cargar Archivo de Divisas              | Soporte Corporativo| Carga             | Introducción de datos de divisas en el sistema | Archivo de Divisas                  | Carga completa o indicación de errores                   |
+| 040 | Corregir Errores de Carga de Divisas   | Soporte Corporativo| Corrección        | Corrección de errores en la carga           | Errores en la carga                  | Carga de datos corregida                                 |
+| 050 | Validar Tasa                           | Soporte Corporativo| Validación        | Comprobación de la tasa de cambio          | Tasa de cambio cargada              | Confirmación de tasa correcta o indicación de discrepancia|
+| 060 | Resolver Discrepancia de Datos         | Soporte Corporativo| Resolución        | Ajuste de discrepancias en los datos       | Discrepancias en los datos           | Datos corregidos                                         |
+| 070 | Ejecutar Cálculo de Revaluación de FX  | GBS                | Cálculo           | Cálculo de la revaluación de FX            | Datos de divisas actualizados        | Asiento de revaluación generado                         |
+| 080 | Revisar Asiento Contable Revaluación   | GBS                | Revisión          | Confirmación de la precisión del asiento   | Asiento contable                    | Validación de asiento o identificación de discrepancias  |
+| 090 | Resolver Discrepancia                  | GBS                | Resolución        | Ajuste de asiento contable incorrecto      | Discrepancia en asiento contable     | Asiento contable corregido                               |
+| 100 | Ejecutar Asiento Revaluación a GL      | GBS                | Ejecución         | Registro del asiento en el libro mayor     | Asiento contable de revaluación      | Registro en GL o indicación de errores                   |
+| 110 | Notificar Error al Propietario Cuenta  | GBS                | Notificación      | Comunicación de errores a responsables    | Error en el registro a GL            | Resolución de error                                      |
+| 120 | Notificación Finalización de Revaluación| GBS                | Notificación      | Informar cierre de evaluación              | Proceso de revaluación completado    | Confirmación de la notificación                          |
+
+Recomendaciones de Optimización:
+
+1. **Automatización:** Implementar herramientas de RPA (Robotic Process Automation) para las actividades 020 y 050, lo que permitiría una revisión y validación automáticas del catálogo de divisas y tasas de cambio. Esto podría minimizar errores humanos y acelerar el proceso.
+
+2. **Consolidación de la Resolución de Discrepancias:** Las actividades 060 y 090 podrían consolidarse en una sola fase de resolución de discrepancias con el fin de reducir etapas y posibles retrasos.
+
+3. **Sistema Integrado de Información:** Se podría implementar un software de manejo de bases de datos para automatizar la carga de archivos de divisas (030), la generación de asientos contables (070), y el registro en el libro mayor (100), con validaciones automáticas que generarían alertas en caso de discrepancias, eliminando así las etapas manuales del proceso.
+
+Implementando estas recomendaciones, se puede incrementar la eficiencia y reducir el tiempo de ciclo del proceso de evaluación de divisas.</div>
+</div>

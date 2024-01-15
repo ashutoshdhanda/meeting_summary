@@ -47,3 +47,36 @@ user_template = '''
     <div class="message">{{MSG}}</div>
 </div>
 '''
+
+scrollable_box_css = """
+<style>
+.scrollable-box {
+    height: 400px;  # Adjust the height as needed
+    overflow-y: scroll;
+    background-color: rgba(255, 255, 255, 0.5);  # Translucent background (you can adjust the opacity)
+    padding: 10px;
+    border-radius: 5px;
+}
+</style>
+"""
+
+# Define CSS to handle overflow
+response_css = """
+    <style>
+        .response-container {
+            display: block;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+        .response-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .response-table td, .response-table th {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            white-space: nowrap;
+        }
+    </style>
+"""
