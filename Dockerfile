@@ -20,9 +20,9 @@ WORKDIR /app/meeting_summary
 # Install dependencies conditionally based on DEBUG_MODE
 ARG DEBUG_MODE=false
 RUN if [ "$DEBUG_MODE" = "true" ]; then \
-        pip install --no-cache-dir -r requirements-dev.txt; \
+    pip install --no-cache-dir -r requirements-dev.txt; \
     else \
-        pip install --no-cache-dir -r requirements.txt; \
+    pip install --no-cache-dir -r requirements.txt; \
     fi
 
 # Inform Docker that the container is listening on the specified port at runtime.
@@ -32,4 +32,4 @@ EXPOSE 8501
 EXPOSE 5678
 
 # Command to run the application, conditionally based on DEBUG_MODE
-CMD if [ "$DEBUG_MODE" = "true" ]; then tail -f /dev/null; else streamlit run app.py; fi
+CMD if [ "$DEBUG_MODE" = "true" ]; then tail -f /dev/null; else streamlit run Home.py; fi
