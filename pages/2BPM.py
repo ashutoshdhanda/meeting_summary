@@ -7,6 +7,36 @@ import json
 from dotenv import load_dotenv
 from htmlTemplates import css, bot_template, user_template, scrollable_box_css, response_css
 
+def show_eula():
+    style = """
+        <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            .scrollable-box {
+                height: 400px;
+                overflow-y: scroll;
+                background-color: rgba(255, 255, 255, 0.5);
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+                white-space: pre-wrap;
+            }
+        </style>
+    """
+    st.markdown(style, unsafe_allow_html=True)
+
+    st.title("End User License Agreement")
+
+    eula_text = """Al utilizar nuestra Aplicación Web basada en Inteligencia Artificial Generativa, usted acepta los siguientes términos y condiciones. Esta aplicación utiliza tecnología de IA generativa avanzada y, como usuario, debe entender que las interacciones con dicha tecnología pueden producir resultados impredecibles, y que el contenido generado debe usarse con discreción. Usted es responsable de garantizar que los datos proporcionados no infrinjan los derechos de privacidad o propiedad intelectual de terceros, y debe estar consciente de que, a pesar de nuestros esfuerzos por asegurar la aplicación y los datos de los usuarios, no se puede garantizar una seguridad completa contra amenazas cibernéticas y accesos no autorizados. Los derechos de propiedad intelectual de la aplicación y el contenido generado pertenecen a nuestra empresa, y su uso no le otorga la propiedad de ningún derecho intelectual relacionado con la aplicación o su contenido. No nos hacemos responsables de daños directos, indirectos, incidentales o consecuentes derivados de su uso de la aplicación, incluyendo aquellos relacionados con inexactitudes, contenido ofensivo o violaciones de seguridad. El uso indebido de la aplicación o su contenido generado puede resultar en la terminación de su acceso. Nos reservamos el derecho de modificar estos términos y condiciones en cualquier momento, y su uso continuado de la aplicación constituye su consentimiento a dichos cambios."""  # Add your EULA text here
+
+    st.markdown(
+        f'<div class="scrollable-box">{eula_text}</div>', unsafe_allow_html=True
+    )
+
+    if st.button("De acuerdo"):
+        st.session_state["eula_accepted"] = True
+        st.rerun()
+
 
 def init():
     if "messages" not in st.session_state:
@@ -61,7 +91,7 @@ def get_image_summary(encoded_images, endpoint, headers):
 
 def main():
 
-    #load_dotenv()
+    load_dotenv()
 
     api_base = os.getenv("API_BASE") 
     deployment_name = os.getenv("DEPLOYMENT_NAME")
@@ -111,9 +141,14 @@ def main():
 
     st.header("Analizar imágenes con GPT4v :eye:")
 
+    st.markdown(
+        """
+Paso 1: Cargue imágenes de BPM. Es recomendable subir imagen de leyenda del proceso para que el modelo entienda mejor su diagrama. \n
+Paso 2: Si carga una imagen de la leyenda, manténgala después de la imagen principal del diagrama. \n 
+Paso 3: Una vez seleccionado, haga clic en el botón de proceso y los resultados aparecerán a continuación.""")
     with st.sidebar:
 
-        uploaded_image = st.file_uploader("Subir imagen:", type=['jpeg', 'gif', 'png', 'webp'], accept_multiple_files=True)
+        uploaded_image = st.file_uploader("Subir imagen: (20 MB Max)", type=['jpeg', 'gif', 'png', 'webp'], accept_multiple_files=True)
         if st.button("Procesar"):
                 with st.spinner("Procesando..."):
                     if uploaded_image:
@@ -154,4 +189,10 @@ def main():
         pass
 
 if __name__ == '__main__':
-    main()
+    if "eula_accepted" not in st.session_state:
+        st.session_state["eula_accepted"] = False
+
+    if st.session_state["eula_accepted"]:
+        main()
+    else:
+        show_eula()

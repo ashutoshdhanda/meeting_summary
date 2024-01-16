@@ -28,15 +28,14 @@ def show_eula():
         f'<div class="scrollable-box">{eula_text}</div>', unsafe_allow_html=True
     )
 
-    if st.button("I Agree"):
+    if st.button("De acuerdo"):
         st.session_state["eula_accepted"] = True
-        st.experimental_rerun()
-        load_dotenv()
+        st.rerun()
 
 def main():    
     st.set_page_config(
         page_title="Home",
-        page_icon="👋",
+        page_icon=":house:",
     )
 
     st.write("# GenAI Toolkit! :rocket:")
@@ -47,8 +46,8 @@ def main():
         """
 ¡Bienvenido a nuestra aplicación web de herramientas de inteligencia artificial generativa!  \n
 -- Aquí descubrirás un mundo de posibilidades y creatividad sin límites, impulsado por la más avanzada tecnología en IA. \n
--- 👈 Selecciona un caso de uso en la barra lateral izquierda** para ver ejemplos de lo que puedes lograr con nuestra plataforma.
-**
+-- 👈 Selecciona un caso de uso en la barra lateral izquierda para ver ejemplos de lo que puedes lograr con nuestra plataforma. \n 
+-- Recuerda darnos tu feedback, [aqui](https://forms.office.com/e/AQw1nw39Lf?origin=lprLink)
 ### 
 """
     )
