@@ -104,8 +104,9 @@ def transcribe_audio(audio_path):
 
 
 def generate_meeting_summary(transcription, client, prompt):
+    summary = []
     try:
-        response = client.chat.completions.create(
+        for resp in client.chat.completions.create(
             model="sopa",
             messages=[
                 {
@@ -114,10 +115,18 @@ def generate_meeting_summary(transcription, client, prompt):
                 },
                 {"role": "user", "content": prompt},
             ],
-        )
-        summary = response.choices[0].message.content
-        st.session_state.conversation_history.append({"role": "assistant", "content": summary})
-        return summary
+            stream=True
+        ):
+            summary.append(resp.choices[0].text)
+            result = "".join(summary).strip()
+            result = result.replace("/n", "")
+            st.markdown(f'*{result}*', unsafe_allow_html=True)
+            return  result
+
+
+        #summary = response.choices[0].message.content
+        #st.session_state.conversation_history.append({"role": "assistant", "content": summary})
+        #return summary
     except Exception as e:
         st.write(e)
         return str(e)
