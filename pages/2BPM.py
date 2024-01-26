@@ -143,9 +143,11 @@ def main():
 
     st.markdown(
         """
-Paso 1: Cargue imágenes de BPM. Es recomendable subir imagen de leyenda del proceso para que el modelo entienda mejor su diagrama. \n
-Paso 2: Si carga una imagen de la leyenda, manténgala después de la imagen principal del diagrama. \n 
-Paso 3: Una vez seleccionado, haga clic en el botón de proceso y los resultados aparecerán a continuación.""")
+Paso 1: Cargue imágenes de BPM. Es recomendable subir, adicionalmente, un imagen de leyenda del proceso para que el modelo entienda mejor su diagrama. \n
+Paso 2: Una vez seleccionado, haga clic en el botón de proceso y los resultados aparecerán a continuación. \n
+\n\n
+
+NOTA: Si el modelo responde algo como "No puedo proporcionar ayuda con esa solicitud.", o algo similar, por favor intente nuevamente haciendo click al boton de Procesar.\n""")
     with st.sidebar:
 
         uploaded_image = st.file_uploader("Subir imagen: (20 MB Max)", type=['jpeg', 'gif', 'png', 'webp'], accept_multiple_files=True)

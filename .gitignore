@@ -1,6 +1,9 @@
-# Exclude specific audio and text files
+# Exclude specific files
 extracted_audio.txt
-extracted_audio.wav
 
 # Exclude all .env files in any directory
-.env
+**/.env
+
+# Exclude all .wav and .mp4 files
+*.wav
+*.mp4

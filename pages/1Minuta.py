@@ -9,6 +9,7 @@ from pydub import AudioSegment
 import whisper
 import base64
 from openai import AzureOpenAI
+import uuid
 
 def show_eula():
     style = """
@@ -54,31 +55,26 @@ def create_download_link(filename, download_name):
     href = f'<a href="data:file/txt;base64,{base64_data}" download="{download_name}">Descargar transcripción.</a>'
     st.markdown(href, unsafe_allow_html=True)
 
+def process_file(uploaded_file, unique_id):
+    original_name = uploaded_file.name
+    extension = os.path.splitext(original_name)[1]
+    temp_file_path = f"temp_file_{unique_id}{extension}"
 
-def extract_audio(video_file, audio_path):
-    with open("temp_video", "wb") as f:
-        f.write(video_file.getbuffer())
+    with open(temp_file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    return temp_file_path
+
+def extract_audio(video_file_path, unique_id):
+    temp_audio_path = f"temp_audio_{unique_id}.wav"
 
     with st.spinner("Extracting audio..."):
-        progress_bar = st.progress(0)
-        video = VideoFileClip("temp_video")
+        video = VideoFileClip(video_file_path)
         video.audio.write_audiofile(
-            "temp_audio.wav", codec="pcm_s16le", ffmpeg_params=["-ar", "16000"]
+            temp_audio_path, codec="pcm_s16le", ffmpeg_params=["-ar", "16000"]
         )
-        progress_bar.progress(100)
 
-    audio = AudioSegment.from_wav("temp_audio.wav")
-    if audio.channels > 2:
-        audio = audio.set_channels(2)
-
-    audio.export(
-        audio_path,
-        format="wav",
-        parameters=["-ar", "16000", "-ac", "2", "-acodec", "pcm_s16le"],
-    )
-
-    os.remove("temp_audio.wav")
-    os.remove("temp_video")
+    return temp_audio_path
 
 
 def transcribe_audio(audio_path):
@@ -156,6 +152,13 @@ def main():
 
 
     st.header("Chat with Videos 📺")
+    st.markdown(
+        """
+Paso 1: Evaluar si el prompt necesita alguna modificación para capturar insights adicionales. \n
+Paso 2: De ser necesario, modificar prompt a su criterio. \n 
+Paso 3: Cargue una transcripción u video de la reunión de la cual generar una minuta. \n
+Paso 4: Espere a que el modelo genere la minuta. Los resultados aparecerán a continuación. \n""")
+    
     transcription = ""
     default_value = "A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
     prompt = st.text_area("Default Prompt", value=default_value, height=400)
@@ -185,18 +188,22 @@ def main():
         )
 
         if uploaded_file is not None:
+            unique_id = str(uuid.uuid4())
+            temp_file_path = process_file(uploaded_file, unique_id)
             if uploaded_file.type.startswith("video/"):
-                audio_path = "extracted_audio.wav"
                 if st.session_state.meeting_info is None:
-                    extract_audio(uploaded_file, audio_path)
+                    audio_path = extract_audio(temp_file_path, unique_id)
                     transcription = transcribe_audio(audio_path)
                     prompt = prompt.replace("{transcription}", transcription)
                     st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
+                    os.remove(temp_file_path)
+                    os.remove(audio_path)
             elif uploaded_file.type.startswith("text/"):
                 if st.session_state.meeting_info is None:
                     transcription = uploaded_file.getvalue().decode('utf-8')
                     prompt = prompt.replace("{transcription}", transcription)
                     st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
+                    os.remove(temp_file_path)
             elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
                 if st.session_state.meeting_info is None:
                     doc = docx.Document(uploaded_file)
@@ -204,6 +211,7 @@ def main():
                     transcription = "\n".join(full_text)
                     prompt = prompt.replace("{transcription}", transcription)
                     st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
+                    os.remove(temp_file_path)
             elif uploaded_file.type.startswith("application/octet-stream"):
                 if st.session_state.meeting_info is None:
                     # Check if the file extension is .vtt
@@ -230,6 +238,7 @@ def main():
                         transcription = ' '.join(dialogues)
                         prompt = prompt.replace("{transcription}", transcription)
                         st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
+                        os.remove(temp_file_path)
             else:
                 st.error("Please upload a valid file.")
 
