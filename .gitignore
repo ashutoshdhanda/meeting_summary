@@ -7,3 +7,5 @@ extracted_audio.txt
 # Exclude all .wav and .mp4 files
 *.wav
 *.mp4
+
+temp_file*
