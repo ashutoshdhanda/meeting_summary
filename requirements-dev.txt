@@ -6,3 +6,4 @@ openai-whisper
 python-dotenv
 python-docx
 pydub
+youtube-transcript-api
