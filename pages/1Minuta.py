@@ -112,7 +112,10 @@ def generate_meeting_summary(transcription, client, prompt):
             ],
         )
         summary = response.choices[0].message.content
-        st.session_state.conversation_history.append({"role": "assistant", "content": summary})
+        st.session_state.conversation_history.extend([
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": summary}
+        ])
         return summary
     except Exception as e:
         st.write(e)
@@ -123,7 +126,7 @@ def handle_user_query(user_query, client):
 
     response = client.chat.completions.create(
         model="sopa",
-        messages=st.session_state.conversation_history[-5:]  # Adjust as needed
+        messages=st.session_state.conversation_history[-10:]  # Adjust as needed
     )
 
     st.session_state.conversation_history.append({"role": "assistant", "content": response.choices[0].message.content})
