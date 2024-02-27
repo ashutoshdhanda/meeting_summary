@@ -110,6 +110,7 @@ def generate_meeting_summary(transcription, client, prompt):
                 },
                 {"role": "user", "content": prompt},
             ],
+            temperature=0
         )
         summary = response.choices[0].message.content
         st.session_state.conversation_history.extend([
@@ -120,7 +121,7 @@ def generate_meeting_summary(transcription, client, prompt):
     except Exception as e:
         st.write(e)
         return str(e)
-    
+
 def handle_user_query(user_query, client):
     st.session_state.conversation_history.append({"role": "user", "content": user_query})
 
@@ -151,99 +152,201 @@ def main():
         st.session_state.conversation_history = []
     if "meeting_info" not in st.session_state:
         st.session_state.meeting_info = None
-    
-
 
     st.header("Chat with Videos 📺")
     st.markdown(
         """
-Paso 1: Evaluar si el prompt necesita alguna modificación para capturar insights adicionales. \n
-Paso 2: De ser necesario, modificar prompt a su criterio. \n 
-Paso 3: Cargue una transcripción u video de la reunión de la cual generar una minuta. \n
-Paso 4: Espere a que el modelo genere la minuta. Los resultados aparecerán a continuación. \n""")
-    
+Paso 1: Subir transcript / video de reunion. \n
+Paso 2: Seleccionar el tipo de reunion y modificar las instrucciones, de ser necesario. \n 
+Paso 3: Presione el boton de procesar. \n
+Paso 4: Espere a que el modelo genere la minuta. Los resultados aparecerán a continuación. \n
+""")
     transcription = ""
-    default_value = "A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. La reunión cubrió varios temas, incluidas actualizaciones de proyectos, discusiones presupuestarias y planificación futura. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
-    prompt = st.text_area("Default Prompt", value=default_value, height=400)
-    #prompt = str.format(prompt_text)
-    if st.button('Change Prompt :test_tube:'):
-        st.success("Prompt Changed!")
-        try:
-            if transcription != "":
-                prompt = prompt.replace("{transcription}", transcription)
-                #st.write("Prompt changed")
-                st.write(prompt)  # Display the formatted prompt
-            else:
-                prompt = prompt.replace("{transcription}", transcription)
-                st.write(prompt)
-        except KeyboardInterrupt as e:
-            st.error(f"Missing a value for the placeholder: {e}")
-            #print(default_value)    
+    default_value = "A continuación se muestra la transcripción de un archivo de audio de una reunión reciente. Su tarea es analizar el texto y generar notas concisas de la reunión que resuma los puntos clave discutidos. Además, cree una lista de participantes basada en los nombres y títulos mencionados durante la reunión.\nTranscripción del archivo de audio:\n{transcription}\nBasado en la transcripción anterior, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas y las acciones a tomar.\n2. Una lista de participantes, incluidos sus nombres y funciones o títulos mencionados en la reunión."
+    uploaded_file = st.file_uploader(
+    "Upload a video / transcription file", type=["mp4", "avi", "mov", "mkv", "vtt", "txt", "docx"]
+)
+    button = None
+    if uploaded_file is not None:
+        unique_id = str(uuid.uuid4())
+        temp_file_path = process_file(uploaded_file, unique_id)
+        if uploaded_file.type.startswith("video/"):
+            if st.session_state.meeting_info is None:
+                audio_path = extract_audio(temp_file_path, unique_id)
+                transcription = transcribe_audio(audio_path)
+        elif uploaded_file.type.startswith("text/"):
+            if st.session_state.meeting_info is None:
+                transcription = uploaded_file.getvalue().decode('utf-8')
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            if st.session_state.meeting_info is None:
+                doc = docx.Document(uploaded_file)
+                full_text = [paragraph.text for paragraph in doc.paragraphs]
+                transcription = "\n".join(full_text)
+        elif uploaded_file.type.startswith("application/octet-stream"):
+            if st.session_state.meeting_info is None:
+                # Check if the file extension is .vtt
+                file_name = uploaded_file.name
+                file_extension = os.path.splitext(file_name)[1].lower()
+                if file_extension == '.vtt':
+                    # Extracting dialogues from the VTT file and concatenating them into a continuous text
+                    vtt_content = uploaded_file.getvalue().decode("utf-8").splitlines()
+                    dialogues = []
+                    is_dialogue_line = False  # Flag to track if a line is part of a dialogue
+                    for line in vtt_content:
+                        # Skip empty lines and lines with metadata (like timestamps and identifiers)
+                        if line.strip() and not '-->' in line and not line[0].isalnum():
+                            is_dialogue_line = True
+                        elif line.strip() == '':
+                            is_dialogue_line = False
 
-    if "meeting_info" not in st.session_state:
-        st.session_state.meeting_info = None
+                        # If it's a dialogue line, add it to the dialogues list
+                        if is_dialogue_line:
+                            dialogues.append(line.strip())
 
-    with st.sidebar:
-        # Sidebar code for file upload and other inputs
-
-        uploaded_file = st.file_uploader(
-            "Upload a video / transcription file", type=["mp4", "avi", "mov", "mkv", "vtt", "txt", "docx"]
+                    # Joining the dialogues into a continuous text
+                    transcription = ' '.join(dialogues)
+        else:
+            st.error("Please upload a valid file.")
+        
+        option = st.selectbox(
+            "Que tipo de reunion es? 📺",
+            ("Session de trabajo", "Estatus", "Capacitacion", "Presentacion", "Otro"),
+            index=None,
+            placeholder="Seleccionar tipo de reunion...",
         )
 
-        if uploaded_file is not None:
-            unique_id = str(uuid.uuid4())
-            temp_file_path = process_file(uploaded_file, unique_id)
+        if option is not None:
+            if option == "Session de trabajo":
+                prompt_session_trabajo = "Dada la transcripción de una reunión reciente, su tarea es analizar el contenido y elaborar un documento que resuma eficientemente los aspectos más importantes discutidos durante la sesión. Utilice la siguiente estructura para su análisis:\n\n- **Sesión de Trabajo:** Incluya una breve descripción de la naturaleza y objetivos de la reunión.\n- **Tema de la reunión:** Especifique el tema principal o los temas cubiertos.\n- **Puntos clave discutidos:** Identifique y resuma los puntos clave discutidos, incluyendo cualquier debate significativo o intercambio de ideas.\n- **Decisiones tomadas:** Liste las decisiones concretas que se tomaron durante la reunión, junto con cualquier contexto relevante.\n- **Tareas asignadas a cada participante:** Enumere las tareas o acciones asignadas, especificando a quién se le asignó cada tarea y cualquier plazo relevante.\n\nBasado en la transcripción proporcionada bajo `{transcription}`, genere lo siguiente:\n1. Un resumen de la reunión, destacando los principales temas discutidos, las decisiones tomadas, y las acciones a tomar.\n2. Una lista de participantes, incluyendo sus nombres y funciones o títulos mencionados en la reunión.\n\nPor favor, asegúrese de que su respuesta sea concisa, clara y organizada, facilitando la comprensión rápida de los resultados de la reunión."
+                with st.expander("Instrucciones:"):
+                    prompt = st.text_area("Estaré trabajando de acuerdo con las siguientes instrucciones. Puedes cambiarlos, si quieres..", value=prompt_session_trabajo, height=300)
+                    #prompt = st.text_area("Default Prompt", value=default_value, height=300)
+                    if st.button('Cambiar :test_tube:'):
+                        st.success("Prompt cambiado exitosamente!")
+                        try:
+                            if transcription != "":
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write("Prompt changed")
+                                #st.write(prompt)  # Display the formatted prompt
+                            else:
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write(prompt)
+                        except KeyboardInterrupt as e:
+                            st.error(f"Missing a value for the placeholder: {e}")
+                button = st.button('Procesar :sparkles:')
+
+            elif option == "Estatus":
+                prompt_estatus = "En base a la transcripción de una reciente sesión de capacitación, su misión es sintetizar la información clave y estructurar un documento que refleje de manera precisa y eficiente los aprendizajes y discusiones importantes de la sesión. Por favor, siga el siguiente formato para su análisis:\n\n- **Capacitación:** Ofrezca una introducción general al objetivo y al ámbito de la sesión de capacitación.\n- **Tema de la reunión:** Detalle el tema principal de la capacitación y cualquier subtema relevante abordado.\n- **Conceptos clave enseñados:** Resuma los conceptos fundamentales que se impartieron, incluyendo metodologías, teorías o prácticas específicas.\n- **Preguntas y respuestas destacadas:** Proporcione un resumen de las interacciones más significativas, incluyendo preguntas clave de los participantes y las respuestas proporcionadas.\n- **Material de seguimiento proporcionado:** Liste cualquier recurso o material de seguimiento que se haya distribuido para profundizar en los temas tratados.\n\nCon base en la transcripción facilitada `{transcription}`, por favor, elabore lo siguiente:\n1. Un resumen conciso de la sesión de capacitación, resaltando los temas tratados, los conceptos clave enseñados, y las interacciones relevantes entre los instructores y participantes.\n2. Una compilación de los materiales de seguimiento proporcionados durante la sesión, si los hay.\n\nAsegúrese de que su documento sea claro, bien estructurado, y útil para quienes busquen entender los resultados y el contenido de la capacitación."
+                with st.expander("Instrucciones:"):
+                    prompt = st.text_area("Estaré trabajando de acuerdo con las siguientes instrucciones. Puedes cambiarlos, si quieres..", value=prompt_estatus, height=300)
+                    #prompt = st.text_area("Default Prompt", value=default_value, height=300)
+                    if st.button('Cambiar :test_tube:'):
+                        st.success("Prompt cambiado exitosamente!")
+                        try:
+                            if transcription != "":
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write("Prompt changed")
+                                #st.write(prompt)  # Display the formatted prompt
+                            else:
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write(prompt)
+                        except KeyboardInterrupt as e:
+                            st.error(f"Missing a value for the placeholder: {e}")
+                button = st.button('Procesar :sparkles:')
+            
+            elif option == "Capacitacion":
+                prompt_capacitacion = "En base a la transcripción de una reciente sesión de capacitación, su misión es sintetizar la información clave y estructurar un documento que refleje de manera precisa y eficiente los aprendizajes y discusiones importantes de la sesión. Por favor, siga el siguiente formato para su análisis:\n\n- **Capacitación:** Ofrezca una introducción general al objetivo y al ámbito de la sesión de capacitación.\n- **Tema de la reunión:** Detalle el tema principal de la capacitación y cualquier subtema relevante abordado.\n- **Conceptos clave enseñados:** Resuma los conceptos fundamentales que se impartieron, incluyendo metodologías, teorías o prácticas específicas.\n- **Preguntas y respuestas destacadas:** Proporcione un resumen de las interacciones más significativas, incluyendo preguntas clave de los participantes y las respuestas proporcionadas.\n- **Material de seguimiento proporcionado:** Liste cualquier recurso o material de seguimiento que se haya distribuido para profundizar en los temas tratados.\n\nCon base en `{transcription}`, por favor, elabore lo siguiente:\n1. Un resumen conciso de la sesión de capacitación, resaltando los temas tratados, los conceptos clave enseñados, y las interacciones relevantes entre los instructores y participantes.\n2. Una compilación de los materiales de seguimiento proporcionados durante la sesión, si los hay.\n\nAsegúrese de que su documento sea claro, bien estructurado, y útil para quienes busquen entender los resultados y el contenido de la capacitación."
+                with st.expander("Instrucciones:"):
+                    prompt = st.text_area("Estaré trabajando de acuerdo con las siguientes instrucciones. Puedes cambiarlos, si quieres..", value=prompt_capacitacion, height=300)
+                    #prompt = st.text_area("Default Prompt", value=default_value, height=300)
+                    if st.button('Cambiar :test_tube:'):
+                        st.success("Prompt cambiado exitosamente!")
+                        try:
+                            if transcription != "":
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write("Prompt changed")
+                                #st.write(prompt)  # Display the formatted prompt
+                            else:
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write(prompt)
+                        except KeyboardInterrupt as e:
+                            st.error(f"Missing a value for the placeholder: {e}")
+                button = st.button('Procesar :sparkles:')
+
+            elif option == "Presentacion":
+                prompt_presentacion = "Dado el contenido de una reciente presentación, su tarea es analizar y condensar la información en un formato que destaque los aspectos más importantes y las interacciones clave. Siga la estructura propuesta para su reporte:\n\n- **Presentación:** Proporcione un resumen introductorio sobre el propósito y los objetivos generales de la presentación.\n- **Tema de la reunión:** Identifique el tema principal abordado en la presentación.\n- **Puntos principales de la presentación:** Detalle los puntos o argumentos clave presentados, enfocándose en aquellos que representan el núcleo de la discusión.\n- **Preguntas y respuestas importantes:** Resuma las interacciones más significativas que surgieron durante la sesión, destacando las preguntas relevantes y las respuestas dadas.\n- **Acción requerida de los participantes:** Liste cualquier llamado a la acción o pasos siguientes que se hayan solicitado a los participantes al final de la presentación.\n\nCon base en `{transcription}`, genere:\n1. Un resumen detallado de la presentación, enfocado en los puntos principales, las discusiones generadas y las acciones a seguir.\n2. Un listado de las preguntas y respuestas clave que ayuden a entender mejor el tema y las expectativas post-reunión.\n\nAsegúrese de que su respuesta sea precisa, bien organizada y ofrezca una visión clara de los resultados y expectativas de la presentación."
+                with st.expander("Instrucciones:"):
+                    prompt = st.text_area("Estaré trabajando de acuerdo con las siguientes instrucciones. Puedes cambiarlos, si quieres..", value=prompt_presentacion, height=300)
+                    #prompt = st.text_area("Default Prompt", value=default_value, height=300)
+                    if st.button('Cambiar :test_tube:'):
+                        st.success("Prompt cambiado exitosamente!")
+                        try:
+                            if transcription != "":
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write("Prompt changed")
+                                #st.write(prompt)  # Display the formatted prompt
+                            else:
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write(prompt)
+                        except KeyboardInterrupt as e:
+                            st.error(f"Missing a value for the placeholder: {e}")
+                button = st.button('Procesar :sparkles:')
+
+            elif option == "Lluvia de ideas":
+                prompt_lluvia_ideas = "Tras revisar la transcripción de una reciente reunión de lluvia de ideas, su objetivo es sintetizar y estructurar un documento que resuma efectivamente las ideas innovadoras y los acuerdos alcanzados. Por favor, siga este esquema para su análisis:\n\n- **Reunión de Lluvia de Ideas:** Breve introducción sobre el propósito y los objetivos de la sesión.\n- **Tema de la reunión:** Especificar el tema central que se exploró durante la sesión.\n- **Ideas generadas:** Resumir las ideas principales que surgieron, destacando aquellas que generaron mayor interés o discusión.\n- **Decisiones tomadas:** Identificar las decisiones concretas que se acordaron, incluyendo cualquier consenso o discrepancia notable.\n- **Próximos pasos acordados:** Enumerar los pasos a seguir que se acordaron, señalando responsables y plazos cuando sea posible.\n\nCon base en `{transcription}`, genere:\n1. Un resumen de las ideas clave y decisiones tomadas durante la reunión.\n2. Un plan de acción detallado que incluya los próximos pasos y responsables asignados.\n\nAsegúrese de que su reporte sea claro, conciso y útil para los participantes y otros interesados, facilitando la comprensión y el seguimiento de los acuerdos alcanzados."
+                with st.expander("Instrucciones:"):
+                    prompt = st.text_area("Estaré trabajando de acuerdo con las siguientes instrucciones. Puedes cambiarlos, si quieres..", value=prompt_lluvia_ideas, height=300)
+                    #prompt = st.text_area("Default Prompt", value=default_value, height=300)
+                    if st.button('Cambiar :test_tube:'):
+                        st.success("Prompt cambiado exitosamente!")
+                        try:
+                            if transcription != "":
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write("Prompt changed")
+                                #st.write(prompt)  # Display the formatted prompt
+                            else:
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write(prompt)
+                        except KeyboardInterrupt as e:
+                            st.error(f"Missing a value for the placeholder: {e}")
+                button = st.button('Procesar :sparkles:')
+
+            elif option == "Otro":
+                prompt_5 = "Otro \n{transcription}\n"
+                with st.expander("Instrucciones:"):
+                    prompt = st.text_area("Estaré trabajando de acuerdo con las siguientes instrucciones. Puedes cambiarlos, si quieres..", value=default_value, height=300)
+                    #prompt = st.text_area("Default Prompt", value=default_value, height=300)
+                    if st.button('Cambiar :test_tube:'):
+                        st.success("Prompt cambiado exitosamente!")
+                        try:
+                            if transcription != "":
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write("Prompt changed")
+                                #st.write(prompt)  # Display the formatted prompt
+                            else:
+                                prompt = prompt.replace("{transcription}", transcription)
+                                #st.write(prompt)
+                        except KeyboardInterrupt as e:
+                            st.error(f"Missing a value for the placeholder: {e}")
+                button = st.button('Procesar :sparkles:')
+
+        if button:
             if uploaded_file.type.startswith("video/"):
                 if st.session_state.meeting_info is None:
-                    audio_path = extract_audio(temp_file_path, unique_id)
-                    transcription = transcribe_audio(audio_path)
                     prompt = prompt.replace("{transcription}", transcription)
                     st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
                     os.remove(temp_file_path)
                     os.remove(audio_path)
-            elif uploaded_file.type.startswith("text/"):
-                if st.session_state.meeting_info is None:
-                    transcription = uploaded_file.getvalue().decode('utf-8')
-                    prompt = prompt.replace("{transcription}", transcription)
-                    st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
-                    os.remove(temp_file_path)
-            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                if st.session_state.meeting_info is None:
-                    doc = docx.Document(uploaded_file)
-                    full_text = [paragraph.text for paragraph in doc.paragraphs]
-                    transcription = "\n".join(full_text)
-                    prompt = prompt.replace("{transcription}", transcription)
-                    st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
-                    os.remove(temp_file_path)
-            elif uploaded_file.type.startswith("application/octet-stream"):
-                if st.session_state.meeting_info is None:
-                    # Check if the file extension is .vtt
-                    file_name = uploaded_file.name
-                    file_extension = os.path.splitext(file_name)[1].lower()
-                    if file_extension == '.vtt':
-                        # Extracting dialogues from the VTT file and concatenating them into a continuous text
-                        vtt_content = uploaded_file.getvalue().decode("utf-8").splitlines()
-                        dialogues = []
-                        is_dialogue_line = False  # Flag to track if a line is part of a dialogue
-
-                        for line in vtt_content:
-                            # Skip empty lines and lines with metadata (like timestamps and identifiers)
-                            if line.strip() and not '-->' in line and not line[0].isalnum():
-                                is_dialogue_line = True
-                            elif line.strip() == '':
-                                is_dialogue_line = False
-                            
-                            # If it's a dialogue line, add it to the dialogues list
-                            if is_dialogue_line:
-                                dialogues.append(line.strip())
-
-                        # Joining the dialogues into a continuous text
-                        transcription = ' '.join(dialogues)
-                        prompt = prompt.replace("{transcription}", transcription)
-                        st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
-                        os.remove(temp_file_path)
             else:
-                st.error("Please upload a valid file.")
+                if st.session_state.meeting_info is None:
+                    prompt = prompt.replace("{transcription}", transcription)
+                    st.session_state.meeting_info = generate_meeting_summary(transcription, client, prompt)
+                    os.remove(temp_file_path)
+
+
+
+    if "meeting_info" not in st.session_state:
+        st.session_state.meeting_info = None
 
     # Displaying the generated meeting information as a bot message on the right side
     if st.session_state.meeting_info:
@@ -253,7 +356,6 @@ Paso 4: Espere a que el modelo genere la minuta. Los resultados aparecerán a co
         st.header("que mas....? 📺")
         # User input text area below the bot message
         user_question = st.text_input("Pregunten aqui:")
-        
 
         if user_question:
             response = handle_user_query(user_question, client)
@@ -261,7 +363,6 @@ Paso 4: Espere a que el modelo genere la minuta. Los resultados aparecerán a co
                 if message["role"] == "assistant":
                     chat_message = create_chat_message(message["content"], bot_template)
                     st.markdown(chat_message, unsafe_allow_html=True)
-
 
 
 if __name__ == "__main__":
